@@ -183,7 +183,16 @@ const newOrderSchema = new Schema(
         type: Number,
         required: true,
       },
-      totalAmount: { type: Number, required: true }
+      totalAmount: { type: Number, required: true },
+      couponDiscount: { type: Number, default: 0 },
+      subtotal: { type: Number, required: true }
+    },
+
+    coupon: {
+      code: { type: String },
+      discountAmount: { type: Number, default: 0 },
+      discountType: { type: String, enum: ['percentage', 'fixed'] },
+      discountValue: { type: Number }
     },
 
     orderedAt: { type: Date, default: Date.now },

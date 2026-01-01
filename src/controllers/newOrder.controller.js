@@ -90,6 +90,8 @@ const createOrderSchema = Joi.object({
   transactionId: Joi.string().allow(null).optional(),
   shippingCharges: Joi.number().precision(2).min(0).default(0),
   totalAmount: Joi.number().precision(2).min(0).optional(),
+  couponCode: Joi.string().allow(null, "").optional(),
+  couponDiscount: Joi.number().precision(2).min(0).default(0).optional(),
 });
 
 export const createOrder = async (req, res) => {
@@ -130,6 +132,8 @@ export const createOrder = async (req, res) => {
     transactionId,
     shippingCharges,
     totalAmount,
+    couponCode,
+    couponDiscount,
   } = value;
   const userId = req.user;
 
@@ -370,6 +374,38 @@ export const createOrder = async (req, res) => {
       );
       console.log("Order items count:", orderItems.length);
 
+      // Calculate subtotal
+      const subtotal = orderItems.reduce(
+        (sum, item) => sum + item.amount * item.quantity,
+        0
+      );
+
+      // Apply coupon discount if provided
+      const appliedCouponDiscount = couponDiscount || 0;
+      const finalSubtotal = Math.max(0, subtotal - appliedCouponDiscount);
+
+      // Calculate final total
+      const finalTotal = finalSubtotal + totalOrderShippingCharges;
+
+      // Get coupon details if coupon code is provided and increment usage count
+      let couponData = null;
+      if (couponCode && appliedCouponDiscount > 0) {
+        const Coupon = (await import("../models/coupon.model.js")).default;
+        const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
+        if (coupon) {
+          // Increment usage count
+          coupon.usedCount += 1;
+          await coupon.save({ session });
+
+          couponData = {
+            code: coupon.code,
+            discountAmount: appliedCouponDiscount,
+            discountType: coupon.discountType,
+            discountValue: coupon.discountValue,
+          };
+        }
+      }
+
       const order = new Order({
         orderId,
         user: userId,
@@ -381,14 +417,12 @@ export const createOrder = async (req, res) => {
         paymentStatus,
         shippingCharges: totalOrderShippingCharges,
         orderedAt: new Date(),
+        coupon: couponData,
         amount: {
           shippingCharges: totalOrderShippingCharges,
-          totalAmount:
-            totalOrderShippingCharges +
-            orderItems.reduce(
-              (sum, item) => sum + item.amount * item.quantity,
-              0
-            ),
+          subtotal: subtotal,
+          couponDiscount: appliedCouponDiscount,
+          totalAmount: finalTotal,
         },
       });
 
@@ -507,10 +541,7 @@ export const getUserOrders = async (req, res) => {
       }
 
       // Calculate total amount and items
-      const totalAmount = order.items.reduce(
-        (sum, item) => sum + (item.amount * item.quantity),
-        0
-      );
+      // Calculate total items
       const totalItems = order.items.reduce(
         (sum, item) => sum + item.quantity,
         0
@@ -548,8 +579,10 @@ export const getUserOrders = async (req, res) => {
         products: Object.values(productsMap),
         items: order.items, // Include full items array
         orderedAt: order.orderedAt,
-        totalAmount: totalAmount,
+        totalAmount: order.amount?.totalAmount || order.totalAmount || 0,
         totalItems: totalItems,
+        amount: order.amount, // Include full amount breakdown
+        coupon: order.coupon, // Include coupon details
         shippingInfo: order.shippingInfo,
         paymentMethod: order.paymentMethod,
         paymentStatus: order.paymentStatus,
@@ -671,8 +704,7 @@ export const getOrderByOrderId = async (req, res) => {
     else if (statuses.includes(OrderStatus.SHIPPED.value))
       overallStatus = OrderStatus.SHIPPED.value;
 
-    // Calculate total amount and items
-    const totalAmount = order.amount.totalAmount;
+    // Calculate total items
     const totalItems = order.items.reduce(
       (sum, item) => sum + item.quantity,
       0
@@ -686,8 +718,10 @@ export const getOrderByOrderId = async (req, res) => {
       items: order.items, // Include full items array for detailed view
       products, // Grouped products
       orderedAt: order.orderedAt,
-      totalAmount: totalAmount,
+      totalAmount: order.amount?.totalAmount || order.totalAmount || 0,
       totalItems: totalItems,
+      amount: order.amount, // Include full amount breakdown
+      coupon: order.coupon, // Include coupon details
       shippingInfo: order.shippingInfo,
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,
@@ -1007,6 +1041,13 @@ export const getOrderItemsByOrderId = async (req, res) => {
       orderedAt: order.orderedAt,
       totalAmount: totalAmount,
       totalItems: totalItems,
+      amount: order.amount || {
+        subtotal: order.items.reduce((sum, item) => sum + (item.amount * item.quantity), 0),
+        couponDiscount: order.coupon?.discountAmount || 0,
+        shippingCharges: order.amount?.shippingCharges || 0,
+        totalAmount: totalAmount
+      },
+      coupon: order.coupon || null,
       shippingInfo: order.shippingInfo,
       paymentMethod: order.paymentMethod,
       paymentStatus: order.paymentStatus,

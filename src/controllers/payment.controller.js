@@ -46,6 +46,12 @@ export const createSimplePayment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing orderId or amount' });
     }
 
+    // Ensure amount is an integer (payment gateways require integer amounts in paise)
+    const amountInt = Math.round(Number(amount));
+    if (!Number.isInteger(amountInt) || amountInt <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be a positive integer' });
+    }
+
     // Check if Cashfree is enabled
     const config = await paymentService.getPaymentConfig();
     const cashfreeConfig = config?.providers?.find(p => p.name === 'cashfree');
@@ -60,7 +66,7 @@ export const createSimplePayment = async (req, res) => {
     // Create Cashfree order
     const orderData = {
       orderId,
-      amount: amount / 100, // Convert from paise to rupees (frontend sends paise)
+      amount: amountInt / 100, // Convert from paise to rupees (frontend sends paise)
       currency: 'INR',
       userId: userId.toString(),
       customerName: 'Customer',
@@ -102,6 +108,12 @@ export const createPaymentOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
+    // Ensure amount is an integer (payment gateways require integer amounts in paise)
+    const amountInt = Math.round(Number(amount));
+    if (!Number.isInteger(amountInt) || amountInt <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be a positive integer' });
+    }
+
     // Check if provider is enabled
     const config = await paymentService.getPaymentConfig();
     const providerConfig = config.providers.find(p => p.name === provider);
@@ -119,14 +131,14 @@ export const createPaymentOrder = async (req, res) => {
     if (provider === 'razorpay') {
       paymentOrder = await paymentService.createRazorpayOrder({
         orderId,
-        amount,
+        amount: amountInt, // Use integer amount
         userId: userId.toString()
       });
       providerOrderId = paymentOrder.id;
     } else if (provider === 'cashfree') {
       paymentOrder = await paymentService.createCashfreeOrder({
         orderId,
-        amount: amount / 100, // Convert from paise to rupees (frontend sends paise)
+        amount: amountInt / 100, // Convert from paise to rupees (frontend sends paise)
         userId: userId.toString(),
         customerName: req.body.customerName,
         customerEmail: req.body.customerEmail,
@@ -141,7 +153,7 @@ export const createPaymentOrder = async (req, res) => {
       transactionId,
       orderId,
       user: userId,
-      amount,
+      amount: amountInt, // Use integer amount
       provider,
       providerOrderId,
       paymentMethod: 'online',

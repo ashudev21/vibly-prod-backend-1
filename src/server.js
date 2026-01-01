@@ -34,6 +34,8 @@ import adminPaymentRoutes from "./routes/admin/payment.route.js";
 import reviewRoutes from "./routes/review.route.js";
 import adminStatsRoutes from "./routes/admin/stats.route.js";
 import addressRoutes from "./routes/user/address.route.js";
+import couponRoutes from "./routes/user/coupon.route.js";
+import adminCouponRoutes from "./routes/admin/coupon.route.js";
 import initSentry from "./utils/sentry.js";
 import * as Sentry from "@sentry/node"
 import { startAllWorkers } from "./queue/workers/workerFactory.js";
@@ -97,7 +99,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: _config.NODE_ENV === 'production',
+    secure: _config.NODE_ENV === 'production' ? true : false,
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: _config.NODE_ENV === 'production' ? 'strict' : 'lax'
@@ -139,6 +141,7 @@ app.use("/api/sale", authMiddleware, saleRoutes);
 app.use("/api/payments", authMiddleware, paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/address", addressRoutes);
+app.use("/api/coupons", couponRoutes);
 
 //Admin Routes
 app.use("/api/admin/banners", adminMiddleware, adminBannerRoutes);
@@ -152,6 +155,7 @@ app.use("/api/admin/users", adminMiddleware, adminUserRoutes);
 app.use("/api/admin/payments", adminMiddleware, adminPaymentRoutes);
 app.use("/api/admin/stats", adminMiddleware, adminStatsRoutes);
 app.use("/api/admin/shiprocket", adminMiddleware, shiprocketRoutes);
+app.use("/api/admin/coupons", adminMiddleware, adminCouponRoutes);
 
 // Webhook routes (no authentication required for external webhooks)
 app.use("/api/webhooks", webhookRoutes);
