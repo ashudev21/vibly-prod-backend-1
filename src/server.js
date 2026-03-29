@@ -71,8 +71,8 @@ connectDB().then(async () => {
 // Middlewares
 // CORS configuration
 const allowedOrigins = [
-  "http://localhost:5173", 
   "https://vibly-frontend.vercel.app",
+  "https://api.vibly.in",
   "https://vibly.in",
   "https://vibly.in/",
   "https://www.vibly.in",
