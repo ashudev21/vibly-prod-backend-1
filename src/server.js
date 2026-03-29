@@ -42,6 +42,7 @@ import { startAllWorkers } from "./queue/workers/workerFactory.js";
 import shiprocketRoutes from "./routes/admin/shiprocket.route.js";
 import webhookRoutes from "./routes/webhook.route.js";
 import { createAdminUser } from "./utils/rolechange.js";
+import sitemapRoutes from "./routes/sitemap.route.js";
 
 
 // Initialize Sentry...,,,....
@@ -159,6 +160,9 @@ app.use("/api/admin/coupons", adminMiddleware, adminCouponRoutes);
 
 // Webhook routes (no authentication required for external webhooks)
 app.use("/api/webhooks", webhookRoutes);
+
+// SEO: Dynamic sitemap (no authentication required)
+app.use("/", sitemapRoutes);
 
 
 
